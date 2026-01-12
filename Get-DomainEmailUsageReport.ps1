@@ -29,10 +29,10 @@
 
 .NOTES
     Author: M365 Analysis Tool
-    Version: 1.1
+    Version: 1.2
     Requires: Exchange Online Management PowerShell Module
     Permissions: Exchange Administrator or Global Administrator
-    Note: Uses Get-MessageTraceV2 (Get-MessageTrace deprecated as of Sept 2025)
+    Note: Uses Get-MessageTraceV2 with automatic pagination (no PageSize/Page params)
 #>
 
 [CmdletBinding()]
@@ -140,8 +140,6 @@ function Get-DomainEmailActivity {
     Write-Log "Note: This may take several minutes depending on email volume..." -Level "Warning"
 
     $activityData = @{}
-    $pageSize = 5000
-    $page = 1
 
     try {
         # Search for messages where sender OR recipient contains the domain
@@ -158,11 +156,12 @@ function Get-DomainEmailActivity {
             Write-Log "Fetching messages from $($currentStart.ToString('yyyy-MM-dd HH:mm')) to $($currentEnd.ToString('yyyy-MM-dd HH:mm'))..." -Level "Info"
 
             # Get messages sent FROM the domain using Get-MessageTraceV2
-            $sentMessages = Get-MessageTraceV2 -StartDate $currentStart -EndDate $currentEnd -PageSize $pageSize -Page $page |
+            # Note: Get-MessageTraceV2 handles pagination automatically
+            $sentMessages = Get-MessageTraceV2 -StartDate $currentStart -EndDate $currentEnd |
                 Where-Object { $_.SenderAddress -like "*@$DomainToAnalyze" }
 
             # Get messages sent TO the domain using Get-MessageTraceV2
-            $receivedMessages = Get-MessageTraceV2 -StartDate $currentStart -EndDate $currentEnd -PageSize $pageSize -Page $page |
+            $receivedMessages = Get-MessageTraceV2 -StartDate $currentStart -EndDate $currentEnd |
                 Where-Object { $_.RecipientAddress -like "*@$DomainToAnalyze" }
 
             $allMessages += $sentMessages

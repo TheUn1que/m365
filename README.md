@@ -570,13 +570,13 @@ If the script is slow:
 - **10-day maximum**: Detailed message trace limited to 10 days
 - **Rate limiting**: API calls are throttled
 - **Processing time**: Large volumes may take 5-10 minutes
-- **Paging**: Results returned in pages of 5000
+- **Automatic pagination**: Get-MessageTraceV2 handles pagination internally
 
 ### Performance Optimization
 
 - Script processes data day-by-day to avoid timeouts
 - Includes 500ms delays to prevent throttling
-- Uses pagination for large result sets
+- Automatic pagination handled by Get-MessageTraceV2
 - Minimal memory footprint
 
 ## Scheduling
@@ -600,6 +600,10 @@ For issues or questions about this script, please refer to the repository docume
 This script is provided as-is for use in your M365 environment.
 
 ## Version History
+
+- **1.2** (2026-01-12): Fixed Get-MessageTraceV2 parameters
+  - Removed unsupported -PageSize and -Page parameters
+  - Get-MessageTraceV2 handles pagination automatically
 
 - **1.1** (2026-01-12): Updated to use Get-MessageTraceV2
   - Replaced deprecated Get-MessageTrace with Get-MessageTraceV2
