@@ -269,7 +269,7 @@ Before removing an accepted domain from Exchange Online mail flow, you need to:
 ## Features
 
 - ✅ **No Graph API Required**: Uses Exchange Online PowerShell only (no app registration needed)
-- ✅ **Message Trace Analysis**: Analyzes actual email traffic from the last 1-10 days
+- ✅ **Message Trace Analysis**: Analyzes actual email traffic from the last 1-14 days
 - ✅ **Comprehensive Coverage**: Identifies both senders and recipients using the domain
 - ✅ **Mailbox Enrichment**: Retrieves mailbox details for each affected user
 - ✅ **Activity Ranking**: Sorts users by total message count (top users first)
@@ -294,7 +294,7 @@ You need one of the following admin roles:
 
 ### Important Notes
 
-- **Message Trace Limitation**: Exchange Online message trace is limited to 10 days of detailed data
+- **Message Trace Limitation**: Exchange Online message trace supports up to 14 days of detailed data
 - **Processing Time**: Large email volumes may take several minutes to process
 - **Rate Limiting**: The script includes delays to avoid throttling
 
@@ -354,7 +354,7 @@ Export only CSV:
 |-----------|------|---------|----------|-------------|
 | `Domain` | String | - | **Yes** | Domain to analyze (e.g., "xyz.com") |
 | `OutputPath` | String | Current directory | No | Path where reports will be saved |
-| `Days` | Integer | 10 | No | Number of days to analyze (1-10) |
+| `Days` | Integer | 10 | No | Number of days to analyze (1-14) |
 | `ExportFormat` | String | Both | No | Export format: HTML, CSV, or Both |
 
 ## Output
@@ -567,7 +567,7 @@ If the script is slow:
 
 ### Message Trace Limitations
 
-- **10-day maximum**: Detailed message trace limited to 10 days
+- **14-day maximum**: Detailed message trace supports up to 14 days
 - **Rate limiting**: API calls are throttled
 - **Processing time**: Large volumes may take 5-10 minutes
 - **Automatic pagination**: Get-MessageTraceV2 handles pagination internally
@@ -601,6 +601,12 @@ This script is provided as-is for use in your M365 environment.
 
 ## Version History
 
+- **1.3** (2026-01-12): Enhanced trace period and HTML improvements
+  - Extended analysis period from 10 to 14 days
+  - Fixed HTML encoding issues (removed emoji characters)
+  - Removed recommended actions section from HTML report
+  - Improved HTML report display compatibility
+
 - **1.2** (2026-01-12): Fixed Get-MessageTraceV2 parameters
   - Removed unsupported -PageSize and -Page parameters
   - Get-MessageTraceV2 handles pagination automatically
@@ -623,7 +629,7 @@ This script is provided as-is for use in your M365 environment.
 | **Purpose** | Monitor guest access | Assess domain removal impact |
 | **API Used** | Microsoft Graph API | Exchange Online PowerShell |
 | **Data Source** | Azure AD / Entra ID | Exchange message trace |
-| **Time Range** | All-time + sign-in activity | Last 1-10 days |
+| **Time Range** | All-time + sign-in activity | Last 1-14 days |
 | **Authentication** | Connect-MgGraph | Connect-ExchangeOnline |
 | **Focus** | User accounts & permissions | Email traffic & usage |
 | **Use Case** | Security & compliance | Domain migration planning |

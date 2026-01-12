@@ -3,7 +3,7 @@
     Analyzes email usage for a specific domain in Exchange Online to assess impact before domain removal.
 
 .DESCRIPTION
-    This script connects to Exchange Online and analyzes message trace data for the last 30 days
+    This script connects to Exchange Online and analyzes message trace data for the last 1-14 days
     to identify all users sending or receiving emails using a specific domain. This helps administrators
     understand the impact before removing an accepted domain from their M365 tenant.
 
@@ -16,7 +16,7 @@
     Directory path where the reports will be saved. Defaults to current directory.
 
 .PARAMETER Days
-    Number of days to analyze (1-30). Defaults to 30 days. Note: Message trace limited to 10 days for detailed data.
+    Number of days to analyze (1-14). Defaults to 10 days.
 
 .PARAMETER ExportFormat
     Format for the export: "HTML", "CSV", or "Both". Defaults to "Both".
@@ -29,10 +29,10 @@
 
 .NOTES
     Author: M365 Analysis Tool
-    Version: 1.2
+    Version: 1.3
     Requires: Exchange Online Management PowerShell Module
     Permissions: Exchange Administrator or Global Administrator
-    Note: Uses Get-MessageTraceV2 with automatic pagination (no PageSize/Page params)
+    Note: Uses Get-MessageTraceV2 (supports 1-14 days analysis)
 #>
 
 [CmdletBinding()]
@@ -45,7 +45,7 @@ param(
     [string]$OutputPath = ".",
 
     [Parameter(Mandatory = $false)]
-    [ValidateRange(1, 10)]
+    [ValidateRange(1, 14)]
     [int]$Days = 10,
 
     [Parameter(Mandatory = $false)]
@@ -402,13 +402,6 @@ function Export-HTMLReport {
         .impact-notice h3 {
             color: #856404;
             margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-        }
-        .impact-notice h3::before {
-            content: "⚠️";
-            margin-right: 10px;
-            font-size: 24px;
         }
         .impact-notice p {
             color: #856404;
@@ -490,7 +483,7 @@ function Export-HTMLReport {
 <body>
     <div class="container">
         <div class="header">
-            <h1>🔍 Domain Email Usage Analysis Report</h1>
+            <h1>Domain Email Usage Analysis Report</h1>
             <div class="subtitle">Domain: <strong>$Domain</strong> | Analysis Period: Last $Days Days | Generated: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")</div>
         </div>
 
@@ -520,18 +513,10 @@ function Export-HTMLReport {
         <div class="impact-notice">
             <h3>Impact Assessment</h3>
             <p><strong>CRITICAL:</strong> Removing domain <strong>$Domain</strong> will affect <span class="metric-inline">$totalUsers unique email addresses</span> that have sent or received <span class="metric-inline">$totalMessages messages</span> in the last $Days days.</p>
-            <p style="margin-top: 10px;"><strong>Recommended Actions:</strong></p>
-            <ul style="margin-left: 20px; margin-top: 5px; line-height: 1.8;">
-                <li>Review all affected users below and migrate them to a different domain</li>
-                <li>Update email addresses in all systems and applications</li>
-                <li>Notify affected users about the upcoming change</li>
-                <li>Set up email forwarding rules before domain removal</li>
-                <li>Verify that no active mailboxes will be orphaned</li>
-            </ul>
         </div>
 
         <div class="content">
-            <h2>📊 Affected Users (Sorted by Activity)</h2>
+            <h2>Affected Users (Sorted by Activity)</h2>
             <table>
                 <thead>
                     <tr>
