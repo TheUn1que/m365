@@ -1,6 +1,11 @@
-# M365 Guest Accounts Activity Report
+# M365 Reporting and Analysis Tools
 
-A comprehensive PowerShell script to generate detailed reports on guest account activity in Microsoft 365.
+A collection of PowerShell scripts for Microsoft 365 reporting and analysis tasks.
+
+## Available Tools
+
+1. **Guest Accounts Activity Report** - Analyze and monitor guest account activity
+2. **Domain Email Usage Report** - Assess email usage impact before domain removal
 
 ## Features
 
@@ -243,3 +248,367 @@ This script is provided as-is for use in your M365 environment.
   - Inactive account detection
   - HTML and CSV export formats
   - Professional report formatting
+
+---
+
+# Domain Email Usage Report
+
+## Overview
+
+The **Get-DomainEmailUsageReport.ps1** script helps you analyze email usage for a specific domain before removing it from your M365 tenant. This tool is essential for understanding the impact of domain removal by identifying all users who are actively sending or receiving emails using that domain.
+
+## Use Case
+
+Before removing an accepted domain from Exchange Online mail flow, you need to:
+
+- **Identify Impact**: Understand who will be affected by the domain removal
+- **Measure Activity**: See how many emails are being sent/received on that domain
+- **Plan Migration**: Determine which users need to be migrated to a different domain
+- **Avoid Service Disruption**: Ensure no active email addresses will be orphaned
+
+## Features
+
+- ✅ **No Graph API Required**: Uses Exchange Online PowerShell only (no app registration needed)
+- ✅ **Message Trace Analysis**: Analyzes actual email traffic from the last 1-10 days
+- ✅ **Comprehensive Coverage**: Identifies both senders and recipients using the domain
+- ✅ **Mailbox Enrichment**: Retrieves mailbox details for each affected user
+- ✅ **Activity Ranking**: Sorts users by total message count (top users first)
+- ✅ **Impact Assessment**: Provides visual summary of potential impact
+- ✅ **Professional Reports**: Generates HTML and CSV reports with detailed statistics
+
+## Prerequisites
+
+### Required PowerShell Module
+
+The script will automatically install:
+
+- **ExchangeOnlineManagement** - Exchange Online PowerShell module
+
+### Required Permissions
+
+You need one of the following admin roles:
+
+- Exchange Administrator
+- Global Administrator
+- Global Reader (for read-only analysis)
+
+### Important Notes
+
+- **Message Trace Limitation**: Exchange Online message trace is limited to 10 days of detailed data
+- **Processing Time**: Large email volumes may take several minutes to process
+- **Rate Limiting**: The script includes delays to avoid throttling
+
+## Installation
+
+1. Download `Get-DomainEmailUsageReport.ps1` to your local machine
+2. Ensure you have PowerShell 5.1 or higher
+3. Run PowerShell as Administrator (for module installation)
+
+## Usage
+
+### Basic Usage
+
+Analyze domain usage for the last 10 days (default):
+
+```powershell
+.\Get-DomainEmailUsageReport.ps1 -Domain "xyz.com"
+```
+
+### Specify Output Path
+
+```powershell
+.\Get-DomainEmailUsageReport.ps1 -Domain "xyz.com" -OutputPath "C:\Reports"
+```
+
+### Custom Analysis Period
+
+Analyze the last 7 days:
+
+```powershell
+.\Get-DomainEmailUsageReport.ps1 -Domain "xyz.com" -Days 7
+```
+
+### Export Format Options
+
+Export only HTML:
+
+```powershell
+.\Get-DomainEmailUsageReport.ps1 -Domain "xyz.com" -ExportFormat HTML
+```
+
+Export only CSV:
+
+```powershell
+.\Get-DomainEmailUsageReport.ps1 -Domain "xyz.com" -ExportFormat CSV
+```
+
+### Combined Parameters
+
+```powershell
+.\Get-DomainEmailUsageReport.ps1 -Domain "xyz.com" -OutputPath "C:\Reports" -Days 10 -ExportFormat Both
+```
+
+## Parameters
+
+| Parameter | Type | Default | Required | Description |
+|-----------|------|---------|----------|-------------|
+| `Domain` | String | - | **Yes** | Domain to analyze (e.g., "xyz.com") |
+| `OutputPath` | String | Current directory | No | Path where reports will be saved |
+| `Days` | Integer | 10 | No | Number of days to analyze (1-10) |
+| `ExportFormat` | String | Both | No | Export format: HTML, CSV, or Both |
+
+## Output
+
+### HTML Report
+
+The HTML report includes:
+
+- **Executive Summary Dashboard**:
+  - Total affected users
+  - Total messages (sent + received)
+  - Messages sent from the domain
+  - Messages received to the domain
+  - Active mailboxes count
+
+- **Impact Assessment Notice**:
+  - Critical warning about removal impact
+  - Number of affected users and messages
+  - Recommended actions before domain removal
+
+- **Detailed User Table** (sorted by activity):
+  - Rank (by message volume)
+  - Email address using the domain
+  - Display name
+  - Mailbox type (UserMailbox, SharedMailbox, External, etc.)
+  - Total messages
+  - Sent count
+  - Received count
+  - First activity date/time
+  - Last activity date/time
+  - Primary SMTP address
+
+- **Visual Indicators**:
+  - High-usage rows highlighted in red (>100 messages)
+  - Mailbox type badges (internal vs external)
+  - Color-coded sections for easy navigation
+
+### CSV Report
+
+The CSV export includes all data fields for analysis:
+
+- EmailAddress
+- DisplayName
+- MailboxType
+- SentCount
+- ReceivedCount
+- TotalMessages
+- FirstActivity
+- LastActivity
+- IsActive
+- PrimarySmtpAddress
+
+## Report Data Fields
+
+### Email Activity Information
+
+- **Email Address**: The email address using the domain (e.g., user@xyz.com)
+- **Display Name**: Full name of the user/mailbox
+- **Mailbox Type**: Type of mailbox (UserMailbox, SharedMailbox, External, etc.)
+- **Total Messages**: Combined sent + received message count
+- **Sent Count**: Number of messages sent FROM this address
+- **Received Count**: Number of messages received TO this address
+- **First Activity**: Earliest message date/time in the analysis period
+- **Last Activity**: Most recent message date/time in the analysis period
+- **Primary SMTP Address**: The primary SMTP address of the mailbox (if different)
+
+## Example Scenarios
+
+### Scenario 1: Pre-Removal Assessment
+
+Before removing domain "oldcompany.com":
+
+```powershell
+.\Get-DomainEmailUsageReport.ps1 -Domain "oldcompany.com" -OutputPath "C:\DomainRemoval" -Days 10
+```
+
+**Result**: Comprehensive report showing all active users on that domain
+
+### Scenario 2: Quick Check
+
+Quick 3-day check to see if domain is still in use:
+
+```powershell
+.\Get-DomainEmailUsageReport.ps1 -Domain "test.com" -Days 3 -ExportFormat CSV
+```
+
+**Result**: Fast CSV export for spreadsheet analysis
+
+### Scenario 3: Executive Briefing
+
+Generate a professional HTML report for stakeholders:
+
+```powershell
+.\Get-DomainEmailUsageReport.ps1 -Domain "legacy.com" -OutputPath "C:\ExecutiveReports" -ExportFormat HTML
+```
+
+**Result**: Polished HTML report with impact assessment
+
+## Understanding the Results
+
+### If Users Are Found
+
+The report will show:
+- Total number of affected users
+- Message volume per user (sorted by most active)
+- Mailbox details for migration planning
+
+**Action Required**:
+- Migrate users to a different domain
+- Update email addresses in all systems
+- Set up forwarding rules
+- Notify affected users
+
+### If No Users Are Found
+
+The script will report:
+```
+No email activity found for domain xyz.com in the specified period.
+```
+
+**This could mean**:
+- Domain is not being used for email
+- No messages in the last X days
+- Domain already removed or not configured
+- Safe to proceed with domain removal
+
+## Best Practices
+
+1. **Run Before Domain Removal**: Always analyze usage before making changes
+2. **Use Maximum Days**: Use 10 days for comprehensive analysis
+3. **Review Top Users**: Focus on high-volume users first for migration
+4. **Check Mailbox Types**: Identify shared mailboxes and distribution lists
+5. **Archive Reports**: Keep reports for audit trail and compliance
+6. **Verify Primary Addresses**: Ensure users have alternative addresses
+7. **Set Up Forwarding**: Configure email forwarding before removal
+8. **Notify Users**: Give affected users advance notice
+9. **Test Migration**: Migrate test users first
+10. **Monitor Post-Removal**: Check for bounce-backs after removal
+
+## Migration Workflow
+
+1. **Analyze**: Run this script to identify affected users
+2. **Plan**: Review report and plan migration strategy
+3. **Communicate**: Notify affected users about upcoming changes
+4. **Migrate**: Update email addresses to new domain
+5. **Forward**: Set up email forwarding rules
+6. **Verify**: Confirm all users have working email
+7. **Remove**: Remove the old domain from tenant
+8. **Monitor**: Watch for any issues post-removal
+
+## Troubleshooting
+
+### Module Installation Issues
+
+If module installation fails:
+
+```powershell
+# Run as Administrator
+Install-Module -Name ExchangeOnlineManagement -Force
+```
+
+### Authentication Issues
+
+If you cannot connect to Exchange Online:
+
+```powershell
+# Try manual connection
+Connect-ExchangeOnline -UserPrincipalName admin@yourtenant.com
+```
+
+### No Data Returned
+
+If no messages are found:
+
+1. Verify the domain is spelled correctly
+2. Confirm the domain is configured in Exchange
+3. Check if domain has been used recently
+4. Try reducing the -Days parameter
+5. Verify your permissions
+
+### Slow Performance
+
+If the script is slow:
+
+1. Reduce the -Days parameter (try 3-5 days)
+2. Run during off-peak hours
+3. Check Exchange Online service health
+4. Large message volumes take longer to process
+
+## Security Considerations
+
+- Script uses **read-only operations** (no data modification)
+- Requires Exchange Administrator permissions
+- Reports contain **sensitive email addresses** - store securely
+- Review permissions before granting access
+- Use least-privilege principle
+- Audit trail maintained by Exchange Online
+
+## Technical Details
+
+### How It Works
+
+1. **Connection**: Connects to Exchange Online via ExchangeOnline module
+2. **Message Trace**: Queries Get-MessageTrace for specified date range
+3. **Filtering**: Filters messages where sender OR recipient matches domain
+4. **Aggregation**: Groups messages by email address
+5. **Enrichment**: Retrieves mailbox details for each address
+6. **Sorting**: Sorts users by total message count (descending)
+7. **Reporting**: Generates formatted HTML and/or CSV reports
+
+### Message Trace Limitations
+
+- **10-day maximum**: Detailed message trace limited to 10 days
+- **Rate limiting**: API calls are throttled
+- **Processing time**: Large volumes may take 5-10 minutes
+- **Paging**: Results returned in pages of 5000
+
+### Performance Optimization
+
+- Script processes data day-by-day to avoid timeouts
+- Includes 500ms delays to prevent throttling
+- Uses pagination for large result sets
+- Minimal memory footprint
+
+## Scheduling
+
+### Using Task Scheduler
+
+Run weekly analysis of critical domains:
+
+```powershell
+$action = New-ScheduledTaskAction -Execute "PowerShell.exe" -Argument "-File C:\Scripts\Get-DomainEmailUsageReport.ps1 -Domain 'oldcompany.com' -OutputPath 'C:\Reports'"
+$trigger = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Sunday -At 7am
+Register-ScheduledTask -Action $action -Trigger $trigger -TaskName "Domain Usage Check" -Description "Weekly domain email usage analysis"
+```
+
+## Support
+
+For issues or questions about this script, please refer to the repository documentation or open an issue.
+
+## License
+
+This script is provided as-is for use in your M365 environment.
+
+---
+
+## Comparison: Guest Report vs Domain Report
+
+| Feature | Guest Accounts Report | Domain Email Usage Report |
+|---------|----------------------|---------------------------|
+| **Purpose** | Monitor guest access | Assess domain removal impact |
+| **API Used** | Microsoft Graph API | Exchange Online PowerShell |
+| **Data Source** | Azure AD / Entra ID | Exchange message trace |
+| **Time Range** | All-time + sign-in activity | Last 1-10 days |
+| **Authentication** | Connect-MgGraph | Connect-ExchangeOnline |
+| **Focus** | User accounts & permissions | Email traffic & usage |
+| **Use Case** | Security & compliance | Domain migration planning |
