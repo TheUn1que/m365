@@ -29,11 +29,11 @@
 
 .NOTES
     Author: M365 Analysis Tool
-    Version: 1.4
+    Version: 1.5
     Requires: Exchange Online Management PowerShell Module
     Permissions: Exchange Administrator or Global Administrator
     Note: Uses Get-MessageTraceV2 (supports 1-14 days analysis)
-    Features: Interactive HTML report with search, filtering, and sorting
+    Features: Interactive HTML report with search, filtering, sorting, and fixed emoji display
 #>
 
 [CmdletBinding()]
@@ -156,26 +156,27 @@ function Get-DomainEmailActivity {
 
             Write-Log "Fetching messages from $($currentStart.ToString('yyyy-MM-dd HH:mm')) to $($currentEnd.ToString('yyyy-MM-dd HH:mm'))..." -Level "Info"
 
-            # Get all messages for the day, then filter for domain matches
-            # This prevents duplicate queries and ensures data consistency
-            try {
-                $dayMessages = @(Get-MessageTraceV2 -StartDate $currentStart -EndDate $currentEnd)
+            # Get messages sent FROM the domain using Get-MessageTraceV2
+            # Note: Get-MessageTraceV2 handles pagination automatically
+            $sentMessages = Get-MessageTraceV2 -StartDate $currentStart -EndDate $currentEnd |
+                Where-Object { $_.SenderAddress -like "*@$DomainToAnalyze" }
 
-                # Filter messages where sender OR recipient matches domain
-                $matchingMessages = $dayMessages | Where-Object {
-                    ($_.SenderAddress -like "*@$DomainToAnalyze") -or
-                    ($_.RecipientAddress -like "*@$DomainToAnalyze")
-                }
+            # Get messages sent TO the domain using Get-MessageTraceV2
+            $receivedMessages = Get-MessageTraceV2 -StartDate $currentStart -EndDate $currentEnd |
+                Where-Object { $_.RecipientAddress -like "*@$DomainToAnalyze" }
 
-                if ($matchingMessages) {
-                    Write-Log "  Found $($matchingMessages.Count) messages involving $DomainToAnalyze" -Level "Info"
-                    $allMessages += $matchingMessages
-                } else {
-                    Write-Log "  No messages found for this day" -Level "Info"
-                }
+            if ($sentMessages) {
+                Write-Log "  Found $($sentMessages.Count) messages sent from $DomainToAnalyze" -Level "Info"
+                $allMessages += $sentMessages
             }
-            catch {
-                Write-Log "  Warning: Failed to retrieve messages for this period: $_" -Level "Warning"
+
+            if ($receivedMessages) {
+                Write-Log "  Found $($receivedMessages.Count) messages received to $DomainToAnalyze" -Level "Info"
+                $allMessages += $receivedMessages
+            }
+
+            if (-not $sentMessages -and -not $receivedMessages) {
+                Write-Log "  No messages found for this day" -Level "Info"
             }
 
             $currentStart = $currentEnd
@@ -414,6 +415,11 @@ function Export-HTMLReport {
             color: #856404;
             margin-bottom: 10px;
         }
+        .impact-notice h3::before {
+            content: '\26A0\FE0F';
+            margin-right: 10px;
+            font-size: 24px;
+        }
         .impact-notice p {
             color: #856404;
             line-height: 1.6;
@@ -568,7 +574,7 @@ function Export-HTMLReport {
 <body>
     <div class="container">
         <div class="header">
-            <h1>Domain Email Usage Analysis Report</h1>
+            <h1>&#128269; Domain Email Usage Analysis Report</h1>
             <div class="subtitle">Domain: <strong>$Domain</strong> | Analysis Period: Last $Days Days | Generated: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")</div>
         </div>
 
@@ -601,7 +607,7 @@ function Export-HTMLReport {
         </div>
 
         <div class="content">
-            <h2>Affected Users (Sorted by Activity)</h2>
+            <h2>&#128202; Affected Users (Sorted by Activity)</h2>
 
             <div class="table-controls">
                 <div class="search-box">

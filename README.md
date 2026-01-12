@@ -604,6 +604,13 @@ This script is provided as-is for use in your M365 environment.
 
 ## Version History
 
+- **1.5** (2026-01-12): Reverted to v1.2 query logic with enhanced HTML
+  - Reverted to dual-query approach (separate sent/received queries per user request)
+  - Kept all interactive HTML features from v1.4 (search, filter, sort)
+  - Fixed emoji encoding issues using HTML entities (&#128269;, &#128202;, &#9888;)
+  - Emojis now display correctly in all browsers
+  - Improved logging to show separate sent/received message counts
+
 - **1.4** (2026-01-12): Data consistency fix and interactive HTML features
   - Fixed message trace query logic to prevent data loss across different day ranges
   - Added interactive search box in HTML report (search by email, name, or mailbox type)
