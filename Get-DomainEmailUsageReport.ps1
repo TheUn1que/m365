@@ -29,11 +29,11 @@
 
 .NOTES
     Author: M365 Analysis Tool
-    Version: 1.5
+    Version: 1.6
     Requires: Exchange Online Management PowerShell Module
     Permissions: Exchange Administrator or Global Administrator
-    Note: Uses Get-MessageTraceV2 (supports 1-14 days analysis)
-    Features: Interactive HTML report with search, filtering, sorting, and fixed emoji display
+    Note: Uses Get-MessageTraceV2 with proper pagination (supports 1-14 days analysis)
+    Features: Interactive HTML report with search, filtering, sorting, and complete data retrieval
 #>
 
 [CmdletBinding()]
@@ -156,31 +156,66 @@ function Get-DomainEmailActivity {
 
             Write-Log "Fetching messages from $($currentStart.ToString('yyyy-MM-dd HH:mm')) to $($currentEnd.ToString('yyyy-MM-dd HH:mm'))..." -Level "Info"
 
-            # Get messages sent FROM the domain using Get-MessageTraceV2
-            # Note: Get-MessageTraceV2 handles pagination automatically
-            $sentMessages = Get-MessageTraceV2 -StartDate $currentStart -EndDate $currentEnd |
-                Where-Object { $_.SenderAddress -like "*@$DomainToAnalyze" }
+            # Fetch ALL messages for this day period with proper pagination
+            $allDayMessages = @()
+            $continuationToken = $null
+            $pageNumber = 1
+            $resultSize = 5000
 
-            # Get messages sent TO the domain using Get-MessageTraceV2
-            $receivedMessages = Get-MessageTraceV2 -StartDate $currentStart -EndDate $currentEnd |
-                Where-Object { $_.RecipientAddress -like "*@$DomainToAnalyze" }
+            do {
+                Write-Log "  Fetching page $pageNumber (batch size: $resultSize)..." -Level "Info"
 
-            if ($sentMessages) {
-                Write-Log "  Found $($sentMessages.Count) messages sent from $DomainToAnalyze" -Level "Info"
+                try {
+                    # Query with continuation token if we have one
+                    if ($continuationToken) {
+                        $pageBatch = @(Get-MessageTraceV2 -StartDate $currentStart -EndDate $currentEnd -ResultSize $resultSize -StartingRecipientAddress $continuationToken -WarningAction SilentlyContinue)
+                    } else {
+                        $pageBatch = @(Get-MessageTraceV2 -StartDate $currentStart -EndDate $currentEnd -ResultSize $resultSize -WarningAction SilentlyContinue)
+                    }
+
+                    if ($pageBatch.Count -gt 0) {
+                        $allDayMessages += $pageBatch
+                        Write-Log "    Retrieved $($pageBatch.Count) messages (Total so far: $($allDayMessages.Count))" -Level "Info"
+
+                        # Set continuation token to last message's recipient address
+                        $continuationToken = $pageBatch[-1].RecipientAddress
+                        $pageNumber++
+                    } else {
+                        # No more results
+                        break
+                    }
+
+                    # Small delay between pages
+                    Start-Sleep -Milliseconds 200
+                }
+                catch {
+                    Write-Log "    Warning: Error fetching page $pageNumber - $_" -Level "Warning"
+                    break
+                }
+            } while ($pageBatch.Count -ge $resultSize)
+
+            # Now filter the messages for our domain
+            $sentMessages = @($allDayMessages | Where-Object { $_.SenderAddress -like "*@$DomainToAnalyze" })
+            $receivedMessages = @($allDayMessages | Where-Object { $_.RecipientAddress -like "*@$DomainToAnalyze" })
+
+            Write-Log "  Processed $($allDayMessages.Count) total messages from this period" -Level "Info"
+
+            if ($sentMessages.Count -gt 0) {
+                Write-Log "  Found $($sentMessages.Count) messages sent from $DomainToAnalyze" -Level "Success"
                 $allMessages += $sentMessages
             }
 
-            if ($receivedMessages) {
-                Write-Log "  Found $($receivedMessages.Count) messages received to $DomainToAnalyze" -Level "Info"
+            if ($receivedMessages.Count -gt 0) {
+                Write-Log "  Found $($receivedMessages.Count) messages received to $DomainToAnalyze" -Level "Success"
                 $allMessages += $receivedMessages
             }
 
-            if (-not $sentMessages -and -not $receivedMessages) {
-                Write-Log "  No messages found for this day" -Level "Info"
+            if ($sentMessages.Count -eq 0 -and $receivedMessages.Count -eq 0) {
+                Write-Log "  No messages found matching domain $DomainToAnalyze" -Level "Info"
             }
 
             $currentStart = $currentEnd
-            Start-Sleep -Milliseconds 500  # Rate limiting
+            Start-Sleep -Milliseconds 500  # Rate limiting between days
         }
 
         Write-Log "Found $($allMessages.Count) total messages involving domain $DomainToAnalyze" -Level "Success"
