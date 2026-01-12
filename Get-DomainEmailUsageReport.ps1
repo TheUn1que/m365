@@ -29,10 +29,11 @@
 
 .NOTES
     Author: M365 Analysis Tool
-    Version: 1.3
+    Version: 1.4
     Requires: Exchange Online Management PowerShell Module
     Permissions: Exchange Administrator or Global Administrator
     Note: Uses Get-MessageTraceV2 (supports 1-14 days analysis)
+    Features: Interactive HTML report with search, filtering, and sorting
 #>
 
 [CmdletBinding()]
@@ -155,17 +156,27 @@ function Get-DomainEmailActivity {
 
             Write-Log "Fetching messages from $($currentStart.ToString('yyyy-MM-dd HH:mm')) to $($currentEnd.ToString('yyyy-MM-dd HH:mm'))..." -Level "Info"
 
-            # Get messages sent FROM the domain using Get-MessageTraceV2
-            # Note: Get-MessageTraceV2 handles pagination automatically
-            $sentMessages = Get-MessageTraceV2 -StartDate $currentStart -EndDate $currentEnd |
-                Where-Object { $_.SenderAddress -like "*@$DomainToAnalyze" }
+            # Get all messages for the day, then filter for domain matches
+            # This prevents duplicate queries and ensures data consistency
+            try {
+                $dayMessages = @(Get-MessageTraceV2 -StartDate $currentStart -EndDate $currentEnd)
 
-            # Get messages sent TO the domain using Get-MessageTraceV2
-            $receivedMessages = Get-MessageTraceV2 -StartDate $currentStart -EndDate $currentEnd |
-                Where-Object { $_.RecipientAddress -like "*@$DomainToAnalyze" }
+                # Filter messages where sender OR recipient matches domain
+                $matchingMessages = $dayMessages | Where-Object {
+                    ($_.SenderAddress -like "*@$DomainToAnalyze") -or
+                    ($_.RecipientAddress -like "*@$DomainToAnalyze")
+                }
 
-            $allMessages += $sentMessages
-            $allMessages += $receivedMessages
+                if ($matchingMessages) {
+                    Write-Log "  Found $($matchingMessages.Count) messages involving $DomainToAnalyze" -Level "Info"
+                    $allMessages += $matchingMessages
+                } else {
+                    Write-Log "  No messages found for this day" -Level "Info"
+                }
+            }
+            catch {
+                Write-Log "  Warning: Failed to retrieve messages for this period: $_" -Level "Warning"
+            }
 
             $currentStart = $currentEnd
             Start-Sleep -Milliseconds 500  # Rate limiting
@@ -478,6 +489,80 @@ function Export-HTMLReport {
             font-weight: bold;
             color: #d32f2f;
         }
+        .table-controls {
+            margin: 20px 0;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .search-box {
+            flex: 1;
+            min-width: 250px;
+        }
+        .search-box input {
+            width: 100%;
+            padding: 10px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        .search-box input:focus {
+            outline: none;
+            border-color: #d32f2f;
+        }
+        .filter-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .filter-btn {
+            padding: 8px 16px;
+            border: 2px solid #e0e0e0;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+        .filter-btn:hover {
+            border-color: #d32f2f;
+            color: #d32f2f;
+        }
+        .filter-btn.active {
+            background: #d32f2f;
+            color: white;
+            border-color: #d32f2f;
+        }
+        th {
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+        }
+        th:hover {
+            background: #b71c1c;
+        }
+        th.sortable::after {
+            content: ' ↕';
+            opacity: 0.5;
+            font-size: 12px;
+        }
+        th.sorted-asc::after {
+            content: ' ↑';
+            opacity: 1;
+        }
+        th.sorted-desc::after {
+            content: ' ↓';
+            opacity: 1;
+        }
+        .no-results {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-size: 16px;
+        }
     </style>
 </head>
 <body>
@@ -517,42 +602,57 @@ function Export-HTMLReport {
 
         <div class="content">
             <h2>Affected Users (Sorted by Activity)</h2>
-            <table>
+
+            <div class="table-controls">
+                <div class="search-box">
+                    <input type="text" id="searchInput" placeholder="Search by email, name, or mailbox type..." onkeyup="filterTable()">
+                </div>
+                <div class="filter-buttons">
+                    <button class="filter-btn active" onclick="filterByType('all')">All ($totalUsers)</button>
+                    <button class="filter-btn" onclick="filterByType('mailbox')">Mailboxes ($activeMailboxes)</button>
+                    <button class="filter-btn" onclick="filterByType('external')">External ($($totalUsers - $activeMailboxes))</button>
+                    <button class="filter-btn" onclick="filterByType('high')">High Usage (&gt;100)</button>
+                </div>
+            </div>
+
+            <table id="dataTable">
                 <thead>
                     <tr>
-                        <th>Rank</th>
-                        <th>Email Address</th>
-                        <th>Display Name</th>
-                        <th>Mailbox Type</th>
-                        <th>Total Messages</th>
-                        <th>Sent</th>
-                        <th>Received</th>
-                        <th>First Activity</th>
-                        <th>Last Activity</th>
-                        <th>Primary SMTP</th>
+                        <th class="sortable" onclick="sortTable(0)">Rank</th>
+                        <th class="sortable" onclick="sortTable(1)">Email Address</th>
+                        <th class="sortable" onclick="sortTable(2)">Display Name</th>
+                        <th class="sortable" onclick="sortTable(3)">Mailbox Type</th>
+                        <th class="sortable sorted-desc" onclick="sortTable(4)">Total Messages</th>
+                        <th class="sortable" onclick="sortTable(5)">Sent</th>
+                        <th class="sortable" onclick="sortTable(6)">Received</th>
+                        <th class="sortable" onclick="sortTable(7)">First Activity</th>
+                        <th class="sortable" onclick="sortTable(8)">Last Activity</th>
+                        <th class="sortable" onclick="sortTable(9)">Primary SMTP</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="tableBody">
 "@
 
     # Add table rows
     $rank = 1
     foreach ($item in $Data) {
-        $rowClass = if ($item.TotalMessages -gt 100) { ' class="high-usage"' } else { '' }
+        $rowClass = if ($item.TotalMessages -gt 100) { 'high-usage' } else { '' }
         $badgeClass = if ($item.MailboxType -ne "Unknown/External") { "badge-mailbox" } else { "badge-external" }
+        $dataType = if ($item.MailboxType -ne "Unknown/External") { "mailbox" } else { "external" }
+        $dataHighUsage = if ($item.TotalMessages -gt 100) { "true" } else { "false" }
 
         $htmlContent += @"
-                    <tr$rowClass>
-                        <td><strong>$rank</strong></td>
-                        <td><strong>$($item.EmailAddress)</strong></td>
-                        <td>$($item.DisplayName)</td>
-                        <td><span class="badge $badgeClass">$($item.MailboxType)</span></td>
-                        <td><strong>$($item.TotalMessages)</strong></td>
-                        <td>$($item.SentCount)</td>
-                        <td>$($item.ReceivedCount)</td>
-                        <td>$($item.FirstActivity)</td>
-                        <td>$($item.LastActivity)</td>
-                        <td>$($item.PrimarySmtpAddress)</td>
+                    <tr class="$rowClass" data-type="$dataType" data-high-usage="$dataHighUsage">
+                        <td data-value="$rank"><strong>$rank</strong></td>
+                        <td data-value="$($item.EmailAddress)"><strong>$($item.EmailAddress)</strong></td>
+                        <td data-value="$($item.DisplayName)">$($item.DisplayName)</td>
+                        <td data-value="$($item.MailboxType)"><span class="badge $badgeClass">$($item.MailboxType)</span></td>
+                        <td data-value="$($item.TotalMessages)"><strong>$($item.TotalMessages)</strong></td>
+                        <td data-value="$($item.SentCount)">$($item.SentCount)</td>
+                        <td data-value="$($item.ReceivedCount)">$($item.ReceivedCount)</td>
+                        <td data-value="$($item.FirstActivity)">$($item.FirstActivity)</td>
+                        <td data-value="$($item.LastActivity)">$($item.LastActivity)</td>
+                        <td data-value="$($item.PrimarySmtpAddress)">$($item.PrimarySmtpAddress)</td>
                     </tr>
 "@
         $rank++
@@ -568,6 +668,164 @@ function Export-HTMLReport {
             <p>Report Path: $filePath</p>
         </div>
     </div>
+
+    <script>
+        let currentFilter = 'all';
+        let sortColumn = 4;
+        let sortAscending = false;
+
+        // Search/Filter function
+        function filterTable() {
+            const searchValue = document.getElementById('searchInput').value.toLowerCase();
+            const table = document.getElementById('dataTable');
+            const tbody = document.getElementById('tableBody');
+            const rows = tbody.getElementsByTagName('tr');
+            let visibleCount = 0;
+
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                const cells = row.getElementsByTagName('td');
+                let textContent = '';
+
+                // Concatenate text from email, name, and mailbox type columns
+                if (cells.length > 0) {
+                    textContent = cells[1].textContent + ' ' + cells[2].textContent + ' ' + cells[3].textContent;
+                }
+
+                const matchesSearch = textContent.toLowerCase().indexOf(searchValue) > -1;
+                const matchesFilter = applyFilter(row);
+
+                if (matchesSearch && matchesFilter) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            }
+
+            // Show "no results" message if needed
+            showNoResults(visibleCount);
+        }
+
+        // Type filter function
+        function filterByType(type) {
+            currentFilter = type;
+
+            // Update button states
+            const buttons = document.querySelectorAll('.filter-btn');
+            buttons.forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            // Apply filter
+            filterTable();
+        }
+
+        // Check if row matches current filter
+        function applyFilter(row) {
+            if (currentFilter === 'all') return true;
+            if (currentFilter === 'mailbox') return row.getAttribute('data-type') === 'mailbox';
+            if (currentFilter === 'external') return row.getAttribute('data-type') === 'external';
+            if (currentFilter === 'high') return row.getAttribute('data-high-usage') === 'true';
+            return true;
+        }
+
+        // Show/hide "no results" message
+        function showNoResults(count) {
+            const tbody = document.getElementById('tableBody');
+            let noResultsRow = document.getElementById('noResultsRow');
+
+            if (count === 0) {
+                if (!noResultsRow) {
+                    noResultsRow = tbody.insertRow();
+                    noResultsRow.id = 'noResultsRow';
+                    const cell = noResultsRow.insertCell(0);
+                    cell.colSpan = 10;
+                    cell.className = 'no-results';
+                    cell.innerHTML = 'No results found. Try adjusting your search or filter.';
+                }
+                noResultsRow.style.display = '';
+            } else {
+                if (noResultsRow) {
+                    noResultsRow.style.display = 'none';
+                }
+            }
+        }
+
+        // Sort table function
+        function sortTable(columnIndex) {
+            const table = document.getElementById('dataTable');
+            const tbody = document.getElementById('tableBody');
+            const rows = Array.from(tbody.getElementsByTagName('tr')).filter(row => row.id !== 'noResultsRow');
+
+            // Toggle sort direction if clicking same column
+            if (columnIndex === sortColumn) {
+                sortAscending = !sortAscending;
+            } else {
+                sortColumn = columnIndex;
+                sortAscending = true;
+            }
+
+            // Sort rows
+            rows.sort((a, b) => {
+                const aValue = a.cells[columnIndex].getAttribute('data-value');
+                const bValue = b.cells[columnIndex].getAttribute('data-value');
+
+                // Try to parse as numbers
+                const aNum = parseFloat(aValue);
+                const bNum = parseFloat(bValue);
+
+                let comparison = 0;
+                if (!isNaN(aNum) && !isNaN(bNum)) {
+                    comparison = aNum - bNum;
+                } else {
+                    comparison = aValue.localeCompare(bValue);
+                }
+
+                return sortAscending ? comparison : -comparison;
+            });
+
+            // Re-append rows in sorted order
+            rows.forEach(row => tbody.appendChild(row));
+
+            // Update header indicators
+            updateSortIndicators(columnIndex);
+
+            // Update rank numbers
+            updateRankNumbers();
+        }
+
+        // Update sort direction indicators in headers
+        function updateSortIndicators(activeColumn) {
+            const headers = document.querySelectorAll('#dataTable th');
+            headers.forEach((header, index) => {
+                header.classList.remove('sorted-asc', 'sorted-desc');
+                if (index === activeColumn) {
+                    header.classList.add(sortAscending ? 'sorted-asc' : 'sorted-desc');
+                }
+            });
+        }
+
+        // Update rank numbers after sorting/filtering
+        function updateRankNumbers() {
+            const tbody = document.getElementById('tableBody');
+            const rows = tbody.getElementsByTagName('tr');
+            let rank = 1;
+
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                if (row.style.display !== 'none' && row.id !== 'noResultsRow') {
+                    row.cells[0].innerHTML = '<strong>' + rank + '</strong>';
+                    row.cells[0].setAttribute('data-value', rank);
+                    rank++;
+                }
+            }
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            updateSortIndicators(4); // Total Messages column is initially sorted
+        });
+    </script>
 </body>
 </html>
 "@

@@ -274,6 +274,7 @@ Before removing an accepted domain from Exchange Online mail flow, you need to:
 - ✅ **Mailbox Enrichment**: Retrieves mailbox details for each affected user
 - ✅ **Activity Ranking**: Sorts users by total message count (top users first)
 - ✅ **Impact Assessment**: Provides visual summary of potential impact
+- ✅ **Interactive HTML Reports**: Search, filter, and sort data dynamically in your browser
 - ✅ **Professional Reports**: Generates HTML and CSV reports with detailed statistics
 
 ## Prerequisites
@@ -387,10 +388,12 @@ The HTML report includes:
   - Last activity date/time
   - Primary SMTP address
 
-- **Visual Indicators**:
-  - High-usage rows highlighted in red (>100 messages)
-  - Mailbox type badges (internal vs external)
-  - Color-coded sections for easy navigation
+- **Interactive Features**:
+  - **Search Box**: Real-time search across email addresses, names, and mailbox types
+  - **Filter Buttons**: Quick filters for All, Mailboxes Only, External Only, High Usage (>100)
+  - **Sortable Columns**: Click any column header to sort (ascending/descending)
+  - **Visual Indicators**: High-usage rows highlighted in red (>100 messages)
+  - **Mailbox Type Badges**: Color-coded badges (blue for internal, pink for external)
 
 ### CSV Report
 
@@ -600,6 +603,14 @@ For issues or questions about this script, please refer to the repository docume
 This script is provided as-is for use in your M365 environment.
 
 ## Version History
+
+- **1.4** (2026-01-12): Data consistency fix and interactive HTML features
+  - Fixed message trace query logic to prevent data loss across different day ranges
+  - Added interactive search box in HTML report (search by email, name, or mailbox type)
+  - Added filter buttons: All, Mailboxes, External, High Usage (>100 messages)
+  - Added sortable columns (click column headers to sort ascending/descending)
+  - Improved query efficiency by fetching messages once per day instead of twice
+  - Added better error handling for message retrieval
 
 - **1.3** (2026-01-12): Enhanced trace period and HTML improvements
   - Extended analysis period from 10 to 14 days
