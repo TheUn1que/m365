@@ -29,9 +29,10 @@
 
 .NOTES
     Author: M365 Analysis Tool
-    Version: 1.0
+    Version: 1.1
     Requires: Exchange Online Management PowerShell Module
     Permissions: Exchange Administrator or Global Administrator
+    Note: Uses Get-MessageTraceV2 (Get-MessageTrace deprecated as of Sept 2025)
 #>
 
 [CmdletBinding()]
@@ -156,12 +157,12 @@ function Get-DomainEmailActivity {
 
             Write-Log "Fetching messages from $($currentStart.ToString('yyyy-MM-dd HH:mm')) to $($currentEnd.ToString('yyyy-MM-dd HH:mm'))..." -Level "Info"
 
-            # Get messages sent FROM the domain
-            $sentMessages = Get-MessageTrace -StartDate $currentStart -EndDate $currentEnd -PageSize $pageSize -Page $page |
+            # Get messages sent FROM the domain using Get-MessageTraceV2
+            $sentMessages = Get-MessageTraceV2 -StartDate $currentStart -EndDate $currentEnd -PageSize $pageSize -Page $page |
                 Where-Object { $_.SenderAddress -like "*@$DomainToAnalyze" }
 
-            # Get messages sent TO the domain
-            $receivedMessages = Get-MessageTrace -StartDate $currentStart -EndDate $currentEnd -PageSize $pageSize -Page $page |
+            # Get messages sent TO the domain using Get-MessageTraceV2
+            $receivedMessages = Get-MessageTraceV2 -StartDate $currentStart -EndDate $currentEnd -PageSize $pageSize -Page $page |
                 Where-Object { $_.RecipientAddress -like "*@$DomainToAnalyze" }
 
             $allMessages += $sentMessages

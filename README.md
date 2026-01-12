@@ -558,7 +558,7 @@ If the script is slow:
 ### How It Works
 
 1. **Connection**: Connects to Exchange Online via ExchangeOnline module
-2. **Message Trace**: Queries Get-MessageTrace for specified date range
+2. **Message Trace**: Queries Get-MessageTraceV2 for specified date range
 3. **Filtering**: Filters messages where sender OR recipient matches domain
 4. **Aggregation**: Groups messages by email address
 5. **Enrichment**: Retrieves mailbox details for each address
@@ -598,6 +598,17 @@ For issues or questions about this script, please refer to the repository docume
 ## License
 
 This script is provided as-is for use in your M365 environment.
+
+## Version History
+
+- **1.1** (2026-01-12): Updated to use Get-MessageTraceV2
+  - Replaced deprecated Get-MessageTrace with Get-MessageTraceV2
+  - Get-MessageTrace was deprecated as of September 1st, 2025
+
+- **1.0** (2026-01-12): Initial release
+  - Exchange Online message trace analysis
+  - Domain email usage reporting
+  - HTML and CSV export formats
 
 ---
 
